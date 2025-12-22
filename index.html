@@ -4,196 +4,103 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Squirrel's Paw</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root {
             --primary-color: #4b5563;
-            --secondary-color: #374151;
-            --accent-color: #9ca3af;
             --bg-gradient: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
-            --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
-            --shadow-md: 0 8px 24px rgba(0,0,0,0.15);
-            --shadow-lg: 0 15px 40px rgba(0,0,0,0.2);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.3);
         }
 
         html, body {
-            margin: 0; 
-            padding: 0;
-            height: 100vh;
-            overflow: hidden; 
-            background-color: #1f2937; 
+            margin: 0; padding: 0; height: 100vh;
+            overflow: hidden; background-color: #1f2937; 
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            -webkit-touch-callout: none;
-            user-select: none;
         }
 
-        .overlay-blur {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.2); /* Mờ trắng */
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    z-index: 5;
-    opacity: 0;
-    pointer-events: none; /* Mặc định xuyên thấu để bấm được nút phía sau */
-    transition: opacity 0.4s ease;
-}
-
-/* Khi đang nhập liệu, lớp mờ hiện lên và chặn các tương tác bên dưới */
-body.is-typing .overlay-blur {
-    opacity: 1;
-    pointer-events: auto; /* Kích hoạt để có thể bấm vào và thoát */
-}
-
-        .header {
-            background: #1f2937;
-            height: 25vh;
-            text-align: center;
-            color: white;
-            padding-top: 20px;
-            position: relative;
-            z-index: 1;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .header h1 { 
-            font-size: clamp(28px, 8vw, 44px); 
-            margin: 0; 
-            font-weight: 900; 
-            letter-spacing: 2px;
-        }
+        .header { background: #1f2937; height: 25vh; text-align: center; color: white; padding-top: 20px; }
+        .header h1 { font-size: clamp(28px, 8vw, 44px); font-weight: 900; margin: 0; }
 
         .main-container {
-            max-width: 450px;
-            margin: -80px auto 0;
-            padding: 0 15px;
-            height: 75vh;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            z-index: 10; /* Đảm bảo nằm trên lớp mờ */
+            max-width: 450px; margin: -80px auto 0; padding: 0 15px;
+            height: 75vh; display: flex; flex-direction: column; position: relative; z-index: 10;
         }
 
-        /* Animation cho Card bật lên */
         .card {
-            background: white;
-            padding: 24px;
-            border-radius: 24px;
-            box-shadow: var(--shadow-lg);
+            background: white; padding: 24px; border-radius: 24px; box-shadow: var(--shadow-lg);
             text-align: center;
-            flex-shrink: 0;
-            position: relative;
-            border: 1px solid rgba(255,255,255,0.9);
-            
-            /* Hiệu ứng bật lên */
-            animation: cardSlideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            opacity: 0;
-            transform: translateY(40px);
         }
 
-        @keyframes cardSlideUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
+        .input-row { display: flex; gap: 8px; margin-bottom: 16px; }
         .input-group {
-            display: flex;
-            align-items: center;
-            border: 2px solid #e8e8e8;
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: #fafafa;
+            display: flex; align-items: center; border: 2px solid #e8e8e8;
+            border-radius: 12px; padding: 12px 16px; background: #fafafa; flex: 1;
         }
-        
-        .input-group:focus-within {
-            border-color: var(--primary-color);
-            background: white;
-            transform: scale(1.02); /* Phóng nhẹ khi nhập */
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        
-        input { 
-            border: none; 
-            outline: none; 
-            width: 100%; 
-            font-size: 16px; 
-            margin-left: 12px;
-            background: transparent;
-            font-weight: 500;
+        input { border: none; outline: none; width: 100%; font-size: 16px; margin-left: 10px; background: transparent; }
+
+        .btn-scan {
+            background: #374151; color: white; border: none; padding: 0 15px;
+            border-radius: 12px; font-weight: 600; cursor: pointer;
         }
 
         .btn-submit {
-            background: var(--bg-gradient);
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 12px;
-            font-weight: 700;
-            width: 100%;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
+            background: var(--bg-gradient); color: white; border: none;
+            padding: 14px; border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer;
         }
 
-        .btn-submit:active {
-            transform: scale(0.95);
+        /* POPUP NHỎ GỌN */
+        #qr-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
         }
+
+        .modal-body {
+            background: white; width: 280px; border-radius: 20px; padding: 20px;
+            box-shadow: var(--shadow-lg); text-align: center;
+        }
+
+        #reader { 
+            width: 100%; aspect-ratio: 1/1; border-radius: 12px; 
+            overflow: hidden; background: #000; margin-bottom: 15px;
+        }
+
+        .modal-btns { display: flex; flex-direction: column; gap: 10px; }
+        .m-btn { padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; }
+        .btn-cam { background: #4b5563; color: white; }
+        .btn-lib { background: #f3f4f6; color: #1f2937; border: 1px solid #ddd; }
+        .btn-close { background: transparent; color: #9ca3af; font-size: 13px; text-decoration: underline; margin-top: 5px; }
 
         .preview-box {
-            margin-top: 20px;
-            width: 100%;
-            aspect-ratio: 3 / 4;
-            background: #e2e8f0; 
-            border: 2px dashed #cbd5e1;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
+            margin-top: 20px; width: 100%; aspect-ratio: 3 / 4;
+            background: #e2e8f0; border: 2px dashed #cbd5e1;
+            border-radius: 16px; display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
-
-        .preview-box img {
-            width: 100%; 
-            height: 100%;
-            object-fit: cover;
-            display: none;
-            animation: fadeIn 0.5s ease;
-        }
+        .preview-box img { width: 100%; height: 100%; object-fit: cover; display: none; }
 
         #notif {
-            position: fixed; 
-            top: -80px; 
-            left: 50%;
-            transform: translateX(-50%);
-            background: #158cff;
-            color: white;
-            padding: 16px 100px; 
-            border-radius: 0 0 0px 0px;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1000; 
-            min-width: 200px;
-            text-align: center;
+            position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
+            background: #158cff; color: white; padding: 12px 30px; 
+            border-radius: 0 0 15px 15px; transition: 0.4s; z-index: 3000;
         }
-        
         #notif.show { top: 0; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
     </style>
 </head>
-<body oncontextmenu="return false;">
-
-    <div class="overlay-blur" id="blurOverlay"></div>
+<body>
 
     <div id="notif">Thông báo</div>
+
+    <div id="qr-modal">
+        <div class="modal-body">
+            <div id="reader"></div>
+            <div class="modal-btns">
+                <button class="m-btn btn-cam" onclick="startCamera()">📸 Quét bằng Camera</button>
+                <button class="m-btn btn-lib" onclick="document.getElementById('file-input').click()">📁 Chọn ảnh từ máy</button>
+                <button class="m-btn btn-close" onclick="closeModal()">Hủy bỏ</button>
+            </div>
+            <input type="file" id="file-input" accept="image/*" style="display:none">
+        </div>
+    </div>
 
     <div class="header">
         <h1>squirrel's paw</h1>
@@ -202,92 +109,119 @@ body.is-typing .overlay-blur {
 
     <div class="main-container">
         <div class="card">
-            <div class="input-group">
-                <span>🔍</span>
-                <input type="text" id="codeField" placeholder="Nhập mã tại đây..." autocomplete="off">
+            <div class="input-row">
+                <div class="input-group">
+                    <span>🔍</span>
+                    <input type="text" id="codeField" placeholder="Nhập mã..." autocomplete="off">
+                </div>
+                <button class="btn-scan" onclick="openModal()">Quét mã</button>
             </div>
             <button class="btn-submit" onclick="handleAction()">kiểm tra</button>
             
-            <div id="loading-text" style="display:none; margin-top:10px; color:#4b5563; font-weight:bold;">⌛ ĐANG TẢI...</div>
+            <div id="loading-text" style="display:none; margin-top:10px;">⌛ ĐANG TẢI...</div>
 
-            <div class="preview-box" id="previewContainer">
-                <span class="preview-placeholder" id="placeholderTxt">Ảnh sẽ hiện ở đây</span>
+            <div class="preview-box">
+                <span id="placeholderTxt">Ảnh sẽ hiện ở đây</span>
                 <img src="" id="mainPreviewImg">
             </div>
-            
-            <div style="position:absolute; bottom:10px; right:15px; font-size:10px; opacity:0.3;">v2.0</div>
         </div>
     </div>
 
     <script>
         const codeField = document.getElementById('codeField');
-const blurOverlay = document.getElementById('blurOverlay');
-const body = document.body;
+        let html5QrCode;
 
-// 1. Khi nhấn vào ô nhập: Hiện mờ
-codeField.addEventListener('focus', () => {
-    body.classList.add('is-typing');
-});
+        function openModal() {
+            document.getElementById('qr-modal').style.display = 'flex';
+            // Khởi tạo vùng chứa reader trước khi làm bất cứ việc gì
+            if (html5QrCode) {
+                html5QrCode.clear();
+            }
+            document.getElementById('reader').innerHTML = "";
+            html5QrCode = new Html5Qrcode("reader");
+        }
 
-// 2. Khi thoát khỏi ô nhập (bằng bất cứ cách nào): Tắt mờ
-codeField.addEventListener('blur', () => {
-    body.classList.remove('is-typing');
-});
+        async function closeModal() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                await html5QrCode.stop();
+            }
+            document.getElementById('qr-modal').style.display = 'none';
+        }
 
-// 3. QUAN TRỌNG: Khi đang mờ, nếu bấm vào vùng mờ thì thoát nhập liệu
-blurOverlay.addEventListener('mousedown', (e) => {
-    codeField.blur(); // Buộc ô nhập liệu mất tiêu điểm -> Class is-typing sẽ tự mất
-});
+        // 1. Quét bằng Camera
+        async function startCamera() {
+            try {
+                const config = { fps: 15, qrbox: { width: 200, height: 200 } };
+                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+            } catch (err) {
+                alert("Không mở được camera. Hãy chắc chắn web chạy HTTPS.");
+            }
+        }
 
-function showMsg(txt) {
-    const n = document.getElementById('notif');
-    n.innerText = txt;
-    n.classList.add('show');
-    setTimeout(() => n.classList.remove('show'), 2500);
-}
+        // 2. SỬA LỖI QUÉT ẢNH TỪ THƯ VIỆN
+        document.getElementById('file-input').addEventListener('change', async (e) => {
+            if (e.target.files.length === 0) return;
+            const imageFile = e.target.files[0];
+            
+            // Nếu đang bật camera thì phải tắt đi trước khi quét file
+            if (html5QrCode.isScanning) {
+                await html5QrCode.stop();
+            }
 
-function handleAction() {
-    const code = codeField.value.trim();
-    const loader = document.getElementById('loading-text');
-    const previewImg = document.getElementById('mainPreviewImg');
-    const placeholder = document.getElementById('placeholderTxt');
-    
-    if (!code) {
-        showMsg("⚠️ Mày chưa nhập mã mà!");
-        return;
-    }
+            // Tiến hành quét file ảnh
+            html5QrCode.scanFile(imageFile, true)
+                .then(decodedText => {
+                    onScanSuccess(decodedText);
+                })
+                .catch(err => {
+                    alert("❌ Không tìm thấy mã QR trong ảnh này. Hãy thử ảnh rõ hơn!");
+                })
+                .finally(() => {
+                    e.target.value = ""; // Reset để có thể chọn lại cùng 1 ảnh
+                });
+        });
 
-    // Tắt trạng thái mờ khi bắt đầu kiểm tra
-    codeField.blur();
-    loader.style.display = "block";
+        function onScanSuccess(decodedText) {
+            // Lấy phần text sau dấu "/" cuối cùng
+            const code = decodedText.split('/').pop();
+            codeField.value = code;
+            closeModal();
+            showMsg("✅ Quét thành công!");
+            handleAction(); 
+        }
 
-    setTimeout(() => {
-        let url = (code.length > 10) 
-            ? `https://pbs.twimg.com/media/${code}?format=jpg&name=orig`
-            : `https://bom.so/${code}`;
+        function showMsg(txt) {
+            const n = document.getElementById('notif');
+            n.innerText = txt; n.classList.add('show');
+            setTimeout(() => n.classList.remove('show'), 2000);
+        }
 
-        previewImg.src = url;
-        
-        previewImg.onload = function() {
-            placeholder.style.display = "none";
-            previewImg.style.display = "block";
-            loader.style.display = "none";
-            showMsg("✅ Mã chính xác!");
-        };
+        function handleAction() {
+            const code = codeField.value.trim();
+            const loader = document.getElementById('loading-text');
+            const previewImg = document.getElementById('mainPreviewImg');
+            const placeholder = document.getElementById('placeholderTxt');
+            
+            if (!code) return;
+            loader.style.display = "block";
+            
+            setTimeout(() => {
+                let url = (code.length > 10) 
+                    ? `https://pbs.twimg.com/media/${code}?format=jpg&name=orig`
+                    : `https://bom.so/${code}`;
 
-        previewImg.onerror = function() {
-            loader.style.display = "none";
-            showMsg("❌ Mã sai rồi");
-        };
-
-        codeField.value = "";
-    }, 800);
-}
-
-// Chặn phím F12 và chuột phải
-document.onkeydown = function(e) {
-    if (e.keyCode == 123 || (e.ctrlKey && e.shiftKey && e.keyCode == 73)) return false;
-};
+                previewImg.src = url;
+                previewImg.onload = () => {
+                    placeholder.style.display = "none";
+                    previewImg.style.display = "block";
+                    loader.style.display = "none";
+                };
+                previewImg.onerror = () => {
+                    loader.style.display = "none";
+                    showMsg("❌ Mã không tồn tại");
+                };
+            }, 800);
+        }
     </script>
 </body>
 </html>
