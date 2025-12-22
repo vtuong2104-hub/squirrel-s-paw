@@ -154,79 +154,109 @@
     </div>
 
     <script>
-        // CHẶN THAO TÁC KÉO VÀ NHẤN GIỮ BẰNG JS
-        document.addEventListener('contextmenu', event => event.preventDefault());
-        document.addEventListener('dragstart', event => event.preventDefault());
+    // CHẶN THAO TÁC KÉO VÀ NHẤN GIỮ BẰNG JS
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    document.addEventListener('dragstart', event => event.preventDefault());
 
-        const codeField = document.getElementById('codeField');
-        const video = document.getElementById('mainVideo');
-        const img = document.getElementById('mainPreviewImg');
-        const mediaBox = document.getElementById('mediaBox');
-        const controls = document.getElementById('videoControls');
-        const placeholder = document.getElementById('placeholderTxt');
-        const innerLoader = document.getElementById('inner-loader');
-        const mBtn = document.getElementById('muteBtn');
-        let html5QrCode;
+    const codeField = document.getElementById('codeField');
+    const video = document.getElementById('mainVideo');
+    const img = document.getElementById('mainPreviewImg');
+    const mediaBox = document.getElementById('mediaBox');
+    const controls = document.getElementById('videoControls');
+    const placeholder = document.getElementById('placeholderTxt');
+    const innerLoader = document.getElementById('inner-loader');
+    const mBtn = document.getElementById('muteBtn');
+    let html5QrCode;
 
-        function showAlert(txt) { document.getElementById('alertMsg').innerText = txt; document.getElementById('alert-popup').style.display = 'flex'; }
-        function closeAlert() { document.getElementById('alert-popup').style.display = 'none'; }
+    // HÀM GIẢI MÃ NHỊ PHÂN
+    function decodeBinary(binaryStr) {
+        // Kiểm tra xem chuỗi có phải là nhị phân hợp lệ không (chỉ chứa 0, 1 và chia hết cho 8)
+        const isBinary = /^[01\s]+$/.test(binaryStr) && binaryStr.replace(/\s/g, '').length % 8 === 0;
+        if (!isBinary) return binaryStr; // Nếu không phải nhị phân, giữ nguyên
 
-        function handleAction() {
-            const code = codeField.value.trim();
-            if (!code) { showAlert("⚠️ Hãy nhập mã!"); return; }
+        try {
+            const cleanBinary = binaryStr.replace(/\s/g, ''); // Xóa khoảng trắng
+            let result = "";
+            for (let i = 0; i < cleanBinary.length; i += 8) {
+                const binChunk = cleanBinary.substr(i, 8);
+                result += String.fromCharCode(parseInt(binChunk, 2));
+            }
+            return result;
+        } catch (e) {
+            return binaryStr;
+        }
+    }
 
-            codeField.value = ""; 
-            codeField.blur();
+    function showAlert(txt) { document.getElementById('alertMsg').innerText = txt; document.getElementById('alert-popup').style.display = 'flex'; }
+    function closeAlert() { document.getElementById('alert-popup').style.display = 'none'; }
 
-            innerLoader.style.display = "flex";
-            placeholder.style.display = "none";
-            img.style.display = "none";
-            video.style.display = "none";
-            controls.style.display = "none";
-            mediaBox.classList.remove('is-video');
-            video.pause();
+    function handleAction() {
+        const rawCode = codeField.value.trim();
+        if (!rawCode) { showAlert("⚠️ Hãy nhập mã!"); return; }
 
-            setTimeout(() => {
-                if (code.length > 20) {
-                    let finalUrl = `https://dl.dropboxusercontent.com/scl/fi/${code}`;
-                    finalUrl = finalUrl.includes("dl=0") ? finalUrl.replace("dl=0", "raw=1") : finalUrl + (finalUrl.includes("?") ? "&" : "?") + "raw=1";
+        // GIẢI MÃ NHỊ PHÂN TRƯỚC KHI XỬ LÝ
+        const code = decodeBinary(rawCode);
 
-                    video.src = finalUrl;
-                    video.onloadedmetadata = () => {
-                        innerLoader.style.display = "none";
-                        mediaBox.classList.add('is-video');
-                        video.style.display = "block";
-                        controls.style.display = "flex";
-                        video.muted = false;
-                        mBtn.innerText = "🔊"; 
-                        video.play().catch(() => { video.muted = true; mBtn.innerText = "🔇"; video.play(); });
-                    };
-                    video.onerror = () => { innerLoader.style.display = "none"; placeholder.style.display = "block"; showAlert("❌ Lỗi Video!"); };
-                } else {
-                    img.src = (code.length > 10) ? `https://pbs.twimg.com/media/${code}?format=jpg&name=orig` : `https://bom.so/${code}`;
-                    img.onload = () => { innerLoader.style.display = "none"; img.style.display = "block"; };
-                    img.onerror = () => { innerLoader.style.display = "none"; placeholder.style.display = "block"; showAlert("❌ Mã sai!"); };
+        codeField.value = ""; 
+        codeField.blur();
+
+        innerLoader.style.display = "flex";
+        placeholder.style.display = "none";
+        img.style.display = "none";
+        video.style.display = "none";
+        controls.style.display = "none";
+        mediaBox.classList.remove('is-video');
+        video.pause();
+
+        setTimeout(() => {
+            // Kiểm tra link Dropbox
+            if (code.length > 20 || code.includes("dropbox.com")) {
+                let finalUrl = code;
+                // Nếu chỉ là mã ID Dropbox
+                if(!code.includes("http")) {
+                    finalUrl = `https://dl.dropboxusercontent.com/scl/fi/${code}`;
                 }
-            }, 800);
-        }
+                finalUrl = finalUrl.includes("dl=0") ? finalUrl.replace("dl=0", "raw=1") : finalUrl + (finalUrl.includes("?") ? "&" : "?") + "raw=1";
 
-        const pBtn = document.getElementById('playBtn'), slider = document.getElementById('timeSlider');
-        pBtn.onclick = () => { if (video.paused) { video.play(); pBtn.innerText = "⏸"; } else { video.pause(); pBtn.innerText = "▶"; } };
-        mBtn.onclick = () => { video.muted = !video.muted; mBtn.innerText = video.muted ? "🔇" : "🔊"; };
-        video.ontimeupdate = () => { slider.value = (video.currentTime / video.duration) * 100 || 0; };
-        slider.oninput = () => { video.currentTime = (slider.value / 100) * video.duration; };
+                video.src = finalUrl;
+                video.onloadedmetadata = () => {
+                    innerLoader.style.display = "none";
+                    mediaBox.classList.add('is-video');
+                    video.style.display = "block";
+                    controls.style.display = "flex";
+                    video.muted = false;
+                    mBtn.innerText = "🔊"; 
+                    video.play().catch(() => { video.muted = true; mBtn.innerText = "🔇"; video.play(); });
+                };
+                video.onerror = () => { innerLoader.style.display = "none"; placeholder.style.display = "block"; showAlert("❌ Lỗi Video!"); };
+            } else {
+                // Xử lý mã ảnh
+                img.src = (code.length > 10) ? `https://pbs.twimg.com/media/${code}?format=jpg&name=orig` : `https://bom.so/${code}`;
+                img.onload = () => { innerLoader.style.display = "none"; img.style.display = "block"; };
+                img.onerror = () => { innerLoader.style.display = "none"; placeholder.style.display = "block"; showAlert("❌ Mã sai!"); };
+            }
+        }, 800);
+    }
 
-        function openModal() { document.getElementById('qr-modal').style.display = 'flex'; if (html5QrCode) html5QrCode.clear(); document.getElementById('reader').innerHTML = ""; html5QrCode = new Html5Qrcode("reader"); }
-        async function closeModal() { if (html5QrCode && html5QrCode.isScanning) await html5QrCode.stop(); document.getElementById('qr-modal').style.display = 'none'; }
-        async function startCamera() { try { await html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 200 }, onScanSuccess); } catch (err) { showAlert("Lỗi Camera!"); } }
-        document.getElementById('file-input').onchange = e => { if (e.target.files.length === 0) return; html5QrCode.scanFile(e.target.files[0], true).then(onScanSuccess).catch(() => showAlert("❌ Không tìm thấy QR!")); };
-        function onScanSuccess(text) { 
-            let val = text; 
-            if (val.includes("/scl/fi/")) val = val.split("/scl/fi/")[1]; 
-            codeField.value = val; 
-            closeModal(); 
-            handleAction(); 
-        }
-    </script>
+    const pBtn = document.getElementById('playBtn'), slider = document.getElementById('timeSlider');
+    pBtn.onclick = () => { if (video.paused) { video.play(); pBtn.innerText = "⏸"; } else { video.pause(); pBtn.innerText = "▶"; } };
+    mBtn.onclick = () => { video.muted = !video.muted; mBtn.innerText = video.muted ? "🔇" : "🔊"; };
+    video.ontimeupdate = () => { slider.value = (video.currentTime / video.duration) * 100 || 0; };
+    slider.oninput = () => { video.currentTime = (slider.value / 100) * video.duration; };
+
+    function openModal() { document.getElementById('qr-modal').style.display = 'flex'; if (html5QrCode) html5QrCode.clear(); document.getElementById('reader').innerHTML = ""; html5QrCode = new Html5Qrcode("reader"); }
+    async function closeModal() { if (html5QrCode && html5QrCode.isScanning) await html5QrCode.stop(); document.getElementById('qr-modal').style.display = 'none'; }
+    async function startCamera() { try { await html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 200 }, onScanSuccess); } catch (err) { showAlert("Lỗi Camera!"); } }
+    document.getElementById('file-input').onchange = e => { if (e.target.files.length === 0) return; html5QrCode.scanFile(e.target.files[0], true).then(onScanSuccess).catch(() => showAlert("❌ Không tìm thấy QR!")); };
+    
+    function onScanSuccess(text) { 
+        // Khi quét thành công, tự động đưa vào giải mã nhị phân ngay
+        let val = text; 
+        if (val.includes("/scl/fi/")) val = val.split("/scl/fi/")[1]; 
+        codeField.value = val; 
+        closeModal(); 
+        handleAction(); 
+    }
+</script>
 </body>
 </html>
