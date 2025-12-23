@@ -178,9 +178,11 @@
     const mBtn = document.getElementById('muteBtn');
     let html5QrCode;
 
-    // GIẢI MÃ THÔNG MINH
+    // GIẢI MÃ THÔNG MINH (Đã cập nhật hỗ trợ Base64)
     function smartDecoder(input) {
-        const str = input.trim();
+        let str = input.trim();
+        
+        // 1. Kiểm tra Nhị phân (Binary)
         const isBinary = /^[01\s]+$/.test(str) && str.replace(/\s/g, '').length % 8 === 0;
         if (isBinary) {
             const clean = str.replace(/\s/g, '');
@@ -190,6 +192,8 @@
             }
             return res;
         }
+
+        // 2. Kiểm tra Thập phân (Decimal)
         const isDecimal = /^[0-9\s]+$/.test(str) && str.includes(' ');
         if (isDecimal) {
             try {
@@ -201,6 +205,18 @@
                 return res;
             } catch (e) { return str; }
         }
+
+        // 3. Kiểm tra và Giải mã Base64
+        const isBase64 = /^[A-Za-z0-9+/]*={0,2}$/.test(str) && str.length % 4 === 0 && str.length > 4;
+        if (isBase64) {
+            try {
+                // Giải mã hỗ trợ Unicode (Tiếng Việt)
+                return decodeURIComponent(escape(atob(str)));
+            } catch (e) {
+                try { return atob(str); } catch (err) { return str; }
+            }
+        }
+
         return str;
     }
 
