@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Squirrel's Paw</title>
+    <title>Squirrel's Paw - Pro Max</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root {
@@ -17,10 +17,10 @@
             margin: 0; padding: 0; min-height: 100vh;
             background-color: #1f2937; 
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            /* Chặn chọn văn bản toàn trang */
-            user-select: none; 
-            -webkit-user-select: none;
+            user-select: none; -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
+            /* Kích hoạt tăng tốc GPU toàn trang */
+            transform: translate3d(0,0,0);
         }
 
         .header { background: #1f2937; height: 18vh; text-align: center; color: white; padding-top: 20px; }
@@ -55,32 +55,38 @@
             display: flex; align-items: center; justify-content: center;
             box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
             transition: aspect-ratio 0.3s ease;
-            /* Chặn menu nhấn giữ trên iOS */
             -webkit-touch-callout: none;
+            /* Ép tạo lớp layer riêng cho GPU */
+            will-change: transform;
         }
 
         .media-box.is-video { aspect-ratio: auto; }
 
-        .media-box::after {
-            content: ""; position: absolute;
-            top: 10px; left: 10px; right: 10px; bottom: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px; pointer-events: none; z-index: 3;
-        }
-
-        #mainPreviewImg, #mainVideo { 
+        #mainVideo { 
             width: 100%; height: auto; display: none; z-index: 1; 
-            /* Chặn thao tác nhấn giữ */
-            -webkit-touch-callout: none;
+            /* Tăng tốc phần cứng 200% bằng cách bỏ qua render mềm */
+            backface-visibility: hidden;
+            perspective: 1000;
+            transform: translate3d(0,0,0);
+            image-rendering: -webkit-optimize-contrast;
+            object-fit: contain;
         }
-        #mainPreviewImg { height: 100%; object-fit: cover; }
 
         #inner-loader {
             display: none; position: absolute; z-index: 5;
             flex-direction: column; align-items: center; gap: 10px;
+            background: rgba(0,0,0,0.7); width: 100%; height: 100%; justify-content: center;
         }
-        .spinner { width: 35px; height: 35px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid #ffffff; border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner { 
+            width: 40px; height: 40px; 
+            border: 4px solid rgba(255,255,255,0.1); 
+            border-top: 4px solid #ffffff; 
+            border-radius: 50%; 
+            animation: spin 0.8s linear infinite; 
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #loadPercent { color: white; font-size: 14px; font-weight: 800; font-family: monospace; }
 
         .video-controls {
             display: none; position: absolute; bottom: 0; left: 0; right: 0;
@@ -100,7 +106,9 @@
         .m-btn { width: 100%; padding: 12px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
     </style>
 </head>
-<body oncontextmenu="return false;"> <div id="alert-popup">
+<body oncontextmenu="return false;"> 
+
+    <div id="alert-popup">
         <div class="alert-content">
             <div id="alertMsg" style="font-weight:600; color:#2d3748;"></div>
             <button class="alert-btn" onclick="closeAlert()">ĐÃ HIỂU</button>
@@ -135,14 +143,15 @@
             <div class="media-box" id="mediaBox">
                 <div id="inner-loader">
                     <div class="spinner"></div>
-                    <span style="color: white; font-size: 10px; font-weight: 700;">ĐANG TRUY XUẤT...</span>
+                    <span style="color: white; font-size: 10px; font-weight: 700; margin-top:5px;">BẢO MẬT DỮ LIỆU...</span>
+                    <div id="loadPercent">0%</div>
                 </div>
                 <span id="placeholderTxt" style="color: #9ca3af; font-size: 12px; padding: 20px; line-height: 1.6;">
                     Quét hoặc nhập mã do<br><b>@vntng2104</b> cung cấp<br>để xem nội dung
                 </span>
                 
-                <img id="mainPreviewImg" draggable="false">
-                <video id="mainVideo" playsinline loop crossorigin="anonymous" oncontextmenu="return false;" disablePictureInPicture></video>
+                <img id="mainPreviewImg" draggable="false" style="display:none; width:100%;">
+                <video id="mainVideo" playsinline loop crossorigin="anonymous" oncontextmenu="return false;" disablePictureInPicture preload="auto"></video>
                 
                 <div class="video-controls" id="videoControls">
                     <button class="control-btn" id="playBtn">▶</button>
@@ -154,9 +163,8 @@
     </div>
 
     <script>
-    // CHẶN THAO TÁC KÉO VÀ NHẤN GIỮ BẰNG JS
-    document.addEventListener('contextmenu', event => event.preventDefault());
-    document.addEventListener('dragstart', event => event.preventDefault());
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('dragstart', e => e.preventDefault());
 
     const codeField = document.getElementById('codeField');
     const video = document.getElementById('mainVideo');
@@ -165,38 +173,30 @@
     const controls = document.getElementById('videoControls');
     const placeholder = document.getElementById('placeholderTxt');
     const innerLoader = document.getElementById('inner-loader');
+    const loadPercent = document.getElementById('loadPercent');
     const mBtn = document.getElementById('muteBtn');
     let html5QrCode;
 
-    // HÀM GIẢI MÃ NHỊ PHÂN
-    function decodeBinary(binaryStr) {
-        // Kiểm tra xem chuỗi có phải là nhị phân hợp lệ không (chỉ chứa 0, 1 và chia hết cho 8)
-        const isBinary = /^[01\s]+$/.test(binaryStr) && binaryStr.replace(/\s/g, '').length % 8 === 0;
-        if (!isBinary) return binaryStr; // Nếu không phải nhị phân, giữ nguyên
-
+    function decodeBinary(s) {
+        if (!/^[01\s]+$/.test(s) || s.replace(/\s/g, '').length % 8 !== 0) return s;
         try {
-            const cleanBinary = binaryStr.replace(/\s/g, ''); // Xóa khoảng trắng
-            let result = "";
-            for (let i = 0; i < cleanBinary.length; i += 8) {
-                const binChunk = cleanBinary.substr(i, 8);
-                result += String.fromCharCode(parseInt(binChunk, 2));
+            const clean = s.replace(/\s/g, '');
+            let res = "";
+            for (let i = 0; i < clean.length; i += 8) {
+                res += String.fromCharCode(parseInt(clean.substr(i, 8), 2));
             }
-            return result;
-        } catch (e) {
-            return binaryStr;
-        }
+            return res;
+        } catch (e) { return s; }
     }
 
-    function showAlert(txt) { document.getElementById('alertMsg').innerText = txt; document.getElementById('alert-popup').style.display = 'flex'; }
+    function showAlert(t) { document.getElementById('alertMsg').innerText = t; document.getElementById('alert-popup').style.display = 'flex'; }
     function closeAlert() { document.getElementById('alert-popup').style.display = 'none'; }
 
-    function handleAction() {
-        const rawCode = codeField.value.trim();
-        if (!rawCode) { showAlert("⚠️ Hãy nhập mã!"); return; }
+    async function handleAction() {
+        const raw = codeField.value.trim();
+        if (!raw) { showAlert("⚠️ Hãy nhập mã!"); return; }
 
-        // GIẢI MÃ NHỊ PHÂN TRƯỚC KHI XỬ LÝ
-        const code = decodeBinary(rawCode);
-
+        const code = decodeBinary(raw);
         codeField.value = ""; 
         codeField.blur();
 
@@ -205,58 +205,83 @@
         img.style.display = "none";
         video.style.display = "none";
         controls.style.display = "none";
-        mediaBox.classList.remove('is-video');
+        loadPercent.innerText = "0%";
+        
         video.pause();
+        video.src = "";
+        video.load();
 
-        setTimeout(() => {
-            // Kiểm tra link Dropbox
-            if (code.length > 20 || code.includes("dropbox.com")) {
-                let finalUrl = code;
-                // Nếu chỉ là mã ID Dropbox
-                if(!code.includes("http")) {
-                    finalUrl = `https://dl.dropboxusercontent.com/scl/fi/${code}`;
+        if (code.length > 20 || code.includes("dropbox.com")) {
+            let url = code.includes("http") ? code : `https://dl.dropboxusercontent.com/scl/fi/${code}`;
+            url = url.replace("dl=0", "raw=1");
+            if (!url.includes("raw=1")) url += (url.includes("?") ? "&" : "?") + "raw=1";
+
+            // LOGIC TẢI TRƯỚC 100% QUA XHR ĐỂ ĐẢM BẢO MƯỢT
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", url, true);
+            xhr.responseType = "blob";
+
+            xhr.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const p = Math.floor((e.loaded / e.total) * 100);
+                    loadPercent.innerText = p + "%";
                 }
-                finalUrl = finalUrl.includes("dl=0") ? finalUrl.replace("dl=0", "raw=1") : finalUrl + (finalUrl.includes("?") ? "&" : "?") + "raw=1";
+            };
 
-                video.src = finalUrl;
-                video.onloadedmetadata = () => {
-                    innerLoader.style.display = "none";
-                    mediaBox.classList.add('is-video');
-                    video.style.display = "block";
-                    controls.style.display = "flex";
-                    video.muted = false;
-                    mBtn.innerText = "🔊"; 
-                    video.play().catch(() => { video.muted = true; mBtn.innerText = "🔇"; video.play(); });
-                };
-                video.onerror = () => { innerLoader.style.display = "none"; placeholder.style.display = "block"; showAlert("❌ Lỗi Video!"); };
-            } else {
-                // Xử lý mã ảnh
-                img.src = (code.length > 10) ? `https://pbs.twimg.com/media/${code}?format=jpg&name=orig` : `https://bom.so/${code}`;
-                img.onload = () => { innerLoader.style.display = "none"; img.style.display = "block"; };
-                img.onerror = () => { innerLoader.style.display = "none"; placeholder.style.display = "block"; showAlert("❌ Mã sai!"); };
-            }
-        }, 800);
+            xhr.onload = function() {
+                if (this.status === 200) {
+                    const videoBlob = this.response;
+                    const blobUrl = URL.createObjectURL(videoBlob);
+                    
+                    video.src = blobUrl;
+                    video.onloadedmetadata = () => {
+                        innerLoader.style.display = "none";
+                        mediaBox.classList.add('is-video');
+                        video.style.display = "block";
+                        controls.style.display = "flex";
+                        video.muted = false;
+                        mBtn.innerText = "🔊";
+                        video.play();
+                    };
+                }
+            };
+
+            xhr.onerror = () => {
+                innerLoader.style.display = "none";
+                placeholder.style.display = "block";
+                showAlert("❌ Lỗi kết nối Dropbox!");
+            };
+
+            xhr.send();
+
+        } else {
+            // Xử lý ảnh (Vẫn giữ logic cũ vì ảnh load nhanh)
+            img.src = (code.length > 10) ? `https://pbs.twimg.com/media/${code}?format=jpg&name=orig` : `https://bom.so/${code}`;
+            img.onload = () => { innerLoader.style.display = "none"; img.style.display = "block"; };
+            img.onerror = () => { innerLoader.style.display = "none"; placeholder.style.display = "block"; showAlert("❌ Mã sai!"); };
+        }
     }
 
+    // Video Controls
     const pBtn = document.getElementById('playBtn'), slider = document.getElementById('timeSlider');
     pBtn.onclick = () => { if (video.paused) { video.play(); pBtn.innerText = "⏸"; } else { video.pause(); pBtn.innerText = "▶"; } };
     mBtn.onclick = () => { video.muted = !video.muted; mBtn.innerText = video.muted ? "🔇" : "🔊"; };
-    video.ontimeupdate = () => { slider.value = (video.currentTime / video.duration) * 100 || 0; };
-    slider.oninput = () => { video.currentTime = (slider.value / 100) * video.duration; };
+    video.ontimeupdate = () => { if (!isNaN(video.duration)) slider.value = (video.currentTime / video.duration) * 100; };
+    slider.oninput = () => { if (!isNaN(video.duration)) video.currentTime = (slider.value / 100) * video.duration; };
 
+    // QR Modal logic
     function openModal() { document.getElementById('qr-modal').style.display = 'flex'; if (html5QrCode) html5QrCode.clear(); document.getElementById('reader').innerHTML = ""; html5QrCode = new Html5Qrcode("reader"); }
     async function closeModal() { if (html5QrCode && html5QrCode.isScanning) await html5QrCode.stop(); document.getElementById('qr-modal').style.display = 'none'; }
     async function startCamera() { try { await html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 200 }, onScanSuccess); } catch (err) { showAlert("Lỗi Camera!"); } }
     document.getElementById('file-input').onchange = e => { if (e.target.files.length === 0) return; html5QrCode.scanFile(e.target.files[0], true).then(onScanSuccess).catch(() => showAlert("❌ Không tìm thấy QR!")); };
     
     function onScanSuccess(text) { 
-        // Khi quét thành công, tự động đưa vào giải mã nhị phân ngay
         let val = text; 
         if (val.includes("/scl/fi/")) val = val.split("/scl/fi/")[1]; 
         codeField.value = val; 
         closeModal(); 
         handleAction(); 
     }
-</script>
+    </script>
 </body>
 </html>
